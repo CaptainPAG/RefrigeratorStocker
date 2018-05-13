@@ -9,6 +9,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.text.FirebaseVisionText
@@ -125,6 +126,7 @@ class PhotoFragment: Fragment(), TabProvider {
 
     private fun failureAnalysis(throwable: Throwable) {
         progressBar.visibility = View.GONE
+        Toast.makeText(context, "読み込みに失敗しました", Toast.LENGTH_SHORT).show()
     }
 
     private fun showBottomSheet(date: Date) {
