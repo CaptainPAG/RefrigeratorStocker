@@ -11,7 +11,10 @@ import android.view.View
 import android.view.ViewGroup
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
+import com.google.firebase.ml.vision.text.FirebaseVisionText
 import com.pag.n_satou.refrigeratorstocker.databinding.FragmentPhotoBinding
+import kotlinx.android.synthetic.main.fragment_photo.*
+import java.util.*
 import java.util.regex.Pattern
 
 
@@ -22,6 +25,8 @@ class PhotoFragment: Fragment(), TabProvider {
 
     private lateinit var binding: FragmentPhotoBinding
     private lateinit var befavior: BottomSheetBehavior<NestedScrollView>
+
+    val pattern = Pattern.compile("\\d{1,4}.\\d{1,2}.\\d{1,2}|\\d{1,4}/\\d{1,2}/\\d{1,2}")
 
     companion object {
 
@@ -53,41 +58,39 @@ class PhotoFragment: Fragment(), TabProvider {
                     BottomSheetBehavior.STATE_SETTLING -> {
                     }
                     BottomSheetBehavior.STATE_EXPANDED -> {
+                        if (binding.takePicture.alpha == 1.0f) {
+                            binding.takePicture.animate().alpha(0.0f).start()
+                        }
                     }
                     BottomSheetBehavior.STATE_COLLAPSED -> {
+                        if (binding.takePicture.alpha == 1.0f) {
+                            binding.takePicture.animate().alpha(0.0f).start()
+                        }
                     }
                     BottomSheetBehavior.STATE_HIDDEN -> {
+                        if (binding.takePicture.alpha == 0.0f) {
+                            binding.takePicture.animate().alpha(1.0f).start()
+                        }
                     }
                 }
             }
         } )
 
         binding.takePicture.setOnClickListener{
+            progressBar.visibility = View.VISIBLE
             binding.cameraView.captureImage {
                 it.bitmap?.let {
                     val image = FirebaseVisionImage.fromBitmap(it)
-                    val detector = FirebaseVision.getInstance().visionTextDetector
 
-                    val p = Pattern.compile("\\d{1,4}.\\d{1,2}.\\d{1,2}|\\d{1,4}/\\d{1,2}/\\d{1,2}")
-                    val result = detector.detectInImage(image)
+                    FirebaseVision.getInstance().visionTextDetector.detectInImage(image)
                             .addOnSuccessListener {
-                                for (block in it.blocks) {
-                                    for (line in block.lines) {
-                                        val lineTxt = line.text
-                                        Log.d("■", lineTxt)
-
-                                        lineTxt.replace(" ", "")
-                                        val m = p.matcher(lineTxt)
-                                        if (m.find()) {
-                                            Log.d("■■■■■■■■■■", m.group())
-                                        }
-
-                                    }
+                                analysisText(it)?.let {
+                                    showBottomSheet(it)
+                                    progressBar.visibility = View.GONE
                                 }
-
                             }
                             .addOnFailureListener {
-
+                                failureAnalysis(it)
                             }
                 }
             }
@@ -99,6 +102,35 @@ class PhotoFragment: Fragment(), TabProvider {
         }
 
         return binding.root
+    }
+
+    private fun analysisText(text: FirebaseVisionText): Date? {
+        for (block in text.blocks) {
+            for (line in block.lines) {
+                val lineTxt = line.text
+                Log.d("■", lineTxt)
+
+                val m = pattern.matcher(lineTxt.replace(" ", ""))
+                if (m.find()) {
+                    val analysisTxt = m.group()
+                    Log.d("■■■■■■■■■■", analysisTxt)
+
+                    return DateFormat.strToDate(analysisTxt)
+                }
+            }
+        }
+        failureAnalysis(AnalysisNoItemException("NO Items"))
+        return null
+    }
+
+    private fun failureAnalysis(throwable: Throwable) {
+        progressBar.visibility = View.GONE
+    }
+
+    private fun showBottomSheet(date: Date) {
+        val dateStr = DateFormat.dateToString(date)
+        binding.dateText.text = dateStr
+        befavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
 
     override fun onPause() {
